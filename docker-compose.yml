@@ -1,0 +1,7 @@
+services:
+  api:
+    build: ./backend
+    ports: ["8000:8000"]
+    environment:
+      JWT_SECRET: "change-me-to-a-long-random-secret-at-least-32-chars"
+    volumes: ["./data:/data"]

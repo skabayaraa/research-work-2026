@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="mn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Агшилт AI</title>
+<style>
+  :root{--bg:#f6f7f9;--card:#fff;--ink:#1f2937;--muted:#6b7280;--brand:#0f766e;--brand2:#115e59;
+        --low:#15803d;--med:#b45309;--high:#b91c1c;--line:#e5e7eb}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  header{background:var(--brand);color:#fff;padding:14px 16px;font-weight:600;display:flex;justify-content:space-between;align-items:center}
+  header small{font-weight:400;opacity:.85}
+  main{max-width:480px;margin:0 auto;padding:12px 16px 90px}
+  .card{background:var(--card);border-radius:14px;padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+  .timer{text-align:center}
+  .big{font-size:44px;font-variant-numeric:tabular-nums;font-weight:700;margin:4px 0}
+  .btn{display:block;width:100%;border:0;border-radius:999px;padding:18px;font-size:20px;font-weight:700;color:#fff;background:var(--brand)}
+  .btn.stop{background:var(--high)}
+  .btn.sec{background:#e6f2f1;color:var(--brand2);font-size:16px;padding:14px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+  .stat{background:var(--bg);border-radius:10px;padding:8px;text-align:center}
+  .stat b{display:block;font-size:18px}.stat span{font-size:12px;color:var(--muted)}
+  label{font-size:14px;color:var(--muted)}
+  input[type=range]{width:100%}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .chip{border:1px solid var(--line);border-radius:999px;padding:8px 12px;font-size:14px;background:#fff}
+  .chip.on{background:#fde8e8;border-color:var(--high);color:var(--high)}
+  textarea{width:100%;min-height:70px;border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+  .result{border-left:6px solid var(--muted)}
+  .result.LOW{border-color:var(--low)}.result.MEDIUM{border-color:var(--med)}.result.HIGH{border-color:var(--high)}
+  .level{font-size:22px;font-weight:800}
+  .LOW .level{color:var(--low)}.MEDIUM .level{color:var(--med)}.HIGH .level{color:var(--high)}
+  .muted{color:var(--muted);font-size:13px}
+  canvas{width:100%;height:150px}
+  nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex}
+  nav button{flex:1;border:0;background:none;padding:12px 4px;font-size:13px;color:var(--muted)}
+  nav button.on{color:var(--brand);font-weight:700}
+  .hidden{display:none}
+  ul{padding-left:18px;margin:6px 0}
+  dialog{border:0;border-radius:14px;max-width:360px}
+</style>
+</head>
+<body>
+<header><span>Агшилт AI</span><small id="net">онлайн</small></header>
+<main>
+  <!-- ТАЙМЕР -->
+  <section id="tab-timer">
+    <div class="card timer">
+      <div class="muted" id="state">Агшилт эхлэхэд дарна уу</div>
+      <div class="big" id="clock">00:00</div>
+      <button class="btn" id="toggle">ЭХЭЛСЭН</button>
+      <div class="stats">
+        <div class="stat"><b id="s-last">–</b><span>Сүүлийн интервал</span></div>
+        <div class="stat"><b id="s-avgI">–</b><span>Дундаж интервал</span></div>
+        <div class="stat"><b id="s-avgD">–</b><span>Дундаж үргэлжлэх</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <label>Өвдөлтийн түвшин: <b id="painv">5</b>/10</label>
+      <input type="range" id="pain" min="1" max="10" value="5">
+      <label>Шинж тэмдэг (байгааг нь сонго)</label>
+      <div class="chips" id="chips"></div>
+      <label style="display:block;margin-top:10px">Өөрийн үгээр бичих (заавал биш)</label>
+      <textarea id="text" placeholder="Жишээ: Сүүлийн 20 минутад өвдөлт нэмэгдээд нуруу өвдөж байна"></textarea>
+      <label style="display:block;margin-top:10px">Жирэмсний долоо хоног</label>
+      <input type="number" id="ga" min="20" max="42" value="38" style="width:90px;padding:8px;border-radius:8px;border:1px solid var(--line)">
+    </div>
+    <button class="btn sec" id="assess">Үнэлгээ харах</button>
+    <div class="card result hidden" id="result" style="margin-top:12px"></div>
+  </section>
+
+  <!-- ТҮҮХ -->
+  <section id="tab-history" class="hidden">
+    <div class="card"><b>Интервал (мин) ба үргэлжлэх (с)</b><canvas id="chart" width="440" height="150"></canvas>
+      <div class="muted">Цэнхэр: интервал · Улбар: үргэлжлэх хугацаа</div></div>
+    <div class="card"><b>Агшилтын жагсаалт</b><ul id="list"></ul>
+      <button class="btn sec" id="clear">Бүгдийг устгах</button></div>
+  </section>
+
+  <!-- ЯАРАЛТАЙ -->
+  <section id="tab-sos" class="hidden">
+    <div class="card"><b>Яаралтай холбоо барих хүн</b>
+      <input id="contact" placeholder="Утасны дугаар" style="width:100%;padding:12px;margin-top:8px;border-radius:10px;border:1px solid var(--line)">
+      <p class="muted">Мессеж зөвхөн таны баталгаажуулсны дараа илгээгдэнэ. Байршлыг таны зөвшөөрлөөр л авна.</p>
+      <button class="btn stop" id="sos">Тусламж хүсэх</button>
+      <a class="btn sec" href="tel:103" style="text-align:center;text-decoration:none;margin-top:8px">103 руу залгах</a>
+    </div>
+    <div class="card muted">Энэ апп эмнэлгийн онош тавихгүй. Судалгааны прототип.</div>
+  </section>
+</main>
+<nav>
+  <button class="on" data-tab="timer">Таймер</button>
+  <button data-tab="history">Түүх</button>
+  <button data-tab="sos">Яаралтай</button>
+</nav>
+<dialog id="confirm"><p id="confirm-text"></p>
+  <button class="btn stop" id="yes">Тийм, илгээх</button><button class="btn sec" id="no" style="margin-top:6px">Үгүй</button></dialog>
+
+<script>
+const SYMPTOMS={bleeding:"Цус гарах",fluid_leak:"Ус/шингэн гоожих",reduced_movement:"Хүүхэд хөдлөхгүй",
+ severe_pain:"Тасралтгүй хүчтэй өвдөлт",fever:"Халуурах",headache_vision:"Толгой өвдөх/хараа бүрэлзэх",
+ back_pain:"Нуруу өвдөх",pelvic_pressure:"Аарцаг дарагдах",pain_increasing:"Өвдөлт нэмэгдэх"};
+const RED=["bleeding","fluid_leak","reduced_movement","severe_pain","fever","headache_vision"];
+const store={get(k,d){try{return JSON.parse(localStorage.getItem(k))??d}catch(e){return d}},
+             set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}};
+let cs=store.get("cs",[]), cur=null, token=store.get("token",null), sel=new Set();
+const $=id=>document.getElementById(id);
+const fmt=s=>String(Math.floor(s/60)).padStart(2,"0")+":"+String(Math.floor(s%60)).padStart(2,"0");
+
+for(const [k,v] of Object.entries(SYMPTOMS)){const b=document.createElement("button");b.className="chip";b.textContent=v;
+  b.onclick=()=>{sel.has(k)?sel.delete(k):sel.add(k);b.classList.toggle("on")};$("chips").appendChild(b)}
+$("pain").oninput=e=>$("painv").textContent=e.target.value;
+
+$("toggle").onclick=()=>{const t=Date.now()/1000;
+  if(!cur){cur={start:t};$("toggle").textContent="ДУУССАН";$("toggle").classList.add("stop");$("state").textContent="Агшилт үргэлжилж байна"}
+  else{cur.end=t;cur.pain=+$("pain").value;cs.push(cur);cur=null;store.set("cs",cs);
+    $("toggle").textContent="ЭХЭЛСЭН";$("toggle").classList.remove("stop");$("state").textContent="Дараагийн агшилтыг хүлээж байна";render()}};
+setInterval(()=>{const t=Date.now()/1000;
+  if(cur)$("clock").textContent=fmt(t-cur.start);else if(cs.length)$("clock").textContent=fmt(t-cs[cs.length-1].start)},250);
+
+function stats(){const w=cs.filter(c=>c.start>=Date.now()/1000-3600);const iv=[];
+  for(let i=1;i<w.length;i++)iv.push((w[i].start-w[i-1].start)/60);
+  const mean=a=>a.length?a.reduce((x,y)=>x+y,0)/a.length:null;
+  return{n:w.length,iv,last:iv.length?iv[iv.length-1]:null,avgI:mean(iv),avgD:mean(w.map(c=>c.end-c.start))}}
+function render(){const s=stats();
+  $("s-last").textContent=s.last?s.last.toFixed(1)+"м":"–";$("s-avgI").textContent=s.avgI?s.avgI.toFixed(1)+"м":"–";
+  $("s-avgD").textContent=s.avgD?Math.round(s.avgD)+"с":"–";
+  $("list").innerHTML=cs.slice(-15).reverse().map(c=>`<li>${new Date(c.start*1000).toLocaleTimeString()} · ${Math.round(c.end-c.start)} с · өвдөлт ${c.pain??"–"}</li>`).join("");
+  draw()}
+function draw(){const cv=$("chart"),x=cv.getContext("2d");x.clearRect(0,0,cv.width,cv.height);
+  const w=cs.slice(-20);if(w.length<2)return;const iv=w.slice(1).map((c,i)=>(c.start-w[i].start)/60),d=w.map(c=>c.end-c.start);
+  const line=(a,max,col)=>{x.strokeStyle=col;x.lineWidth=2;x.beginPath();a.forEach((v,i)=>{const px=10+i*(cv.width-20)/Math.max(1,a.length-1),
+    py=cv.height-10-(v/max)*(cv.height-20);i?x.lineTo(px,py):x.moveTo(px,py)});x.stroke()};
+  line(iv,Math.max(...iv,10),"#2563eb");line(d,Math.max(...d,90),"#ea580c")}
+
+// Offline үед ажиллах энгийн дүрэм (backend-ийн rules.py-тай ижил логик)
+function offlineRule(ga){const s=stats();if(RED.some(r=>sel.has(r)))return"HIGH";
+  const span=s.n?(Date.now()/1000-cs.filter(c=>c.start>=Date.now()/1000-3600)[0].start)/60:0;
+  const freq=s.n/Math.max(span,15)*60;
+  if(ga<37)return freq>=6?"HIGH":freq>=4?"MEDIUM":"LOW";
+  if(s.n>=3&&s.avgI<=5&&s.avgD>=60&&span>=60)return"HIGH";
+  if(s.n>=3&&s.avgI<=10)return"MEDIUM";return"LOW"}
+
+async function getToken(){if(token)return token;const r=await fetch("/api/v1/auth/anonymous",{method:"POST"});
+  const j=await r.json();token=j.token;store.set("token",token);return token}
+$("assess").onclick=async()=>{const ga=+$("ga").value,body={ga_week:ga,contractions:cs,checkbox_symptoms:[...sel],
+  free_text:$("text").value||null,now:Date.now()/1000};let out;
+  try{const t0=performance.now();const r=await fetch("/api/v1/assess",{method:"POST",
+      headers:{"Content-Type":"application/json",Authorization:"Bearer "+(await getToken())},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error(r.status);out=await r.json();out.rtt=Math.round(performance.now()-t0);$("net").textContent="онлайн"}
+  catch(e){$("net").textContent="офлайн";out={risk_level:offlineRule(ga),advice:"Офлайн горим: энгийн дүрмээр тооцоолов.",
+    explanations:[],nlp_symptoms:[],disclaimer:"Энэ нь эмнэлгийн онош биш."}}
+  const el=$("result");el.className="card result "+out.risk_level;
+  const names={LOW:"БАГА",MEDIUM:"ДУНД",HIGH:"ӨНДӨР"};
+  el.innerHTML=`<div class="muted">Анхаарах түвшин</div><div class="level">${names[out.risk_level]}</div>
+   <p>${out.advice}</p>${out.explanations.length?"<ul>"+out.explanations.map(e=>`<li>${e}</li>`).join("")+"</ul>":""}
+   ${out.nlp_symptoms.length?`<div class="muted">Бичвэрээс танигдсан: ${out.nlp_symptoms.map(s=>SYMPTOMS[s]).join(", ")}</div>`:""}
+   <p class="muted">${out.disclaimer}${out.rtt?` · хариу ${out.rtt} мс`:""}</p>`;
+  if(out.risk_level==="HIGH")el.innerHTML+=`<button class="btn stop" onclick="askSOS()">Яаралтай холбоо барих хүнд мэдэгдэх</button>`}
+
+window.askSOS=()=>{$("confirm-text").textContent="Яаралтай холбоо барих хүнд байршил болон мессеж илгээх үү?";$("confirm").showModal()};
+$("sos").onclick=askSOS;$("no").onclick=()=>$("confirm").close();
+$("yes").onclick=()=>{$("confirm").close();const num=$("contact").value||store.get("contact","");store.set("contact",num);
+  const send=loc=>{location.href=`sms:${num}?body=${encodeURIComponent("Надад тусламж хэрэгтэй байна. "+(loc||""))}`};
+  if(navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>send(`Байршил: https://maps.google.com/?q=${p.coords.latitude},${p.coords.longitude}`),()=>send(""),{timeout:5000});else send("")};
+$("contact").value=store.get("contact","");
+$("clear").onclick=()=>{if(confirm("Бүх бүртгэлийг устгах уу?")){cs=[];store.set("cs",cs);render()}};
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");["timer","history","sos"].forEach(t=>$("tab-"+t).classList.toggle("hidden",t!==b.dataset.tab));draw()});
+render();
+</script>
+</body>
+</html>

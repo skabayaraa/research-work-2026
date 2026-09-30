@@ -1,0 +1,10 @@
+<!-- android/app/src/main/AndroidManifest.xml файлд <manifest> дотор, <application>-ээс ӨМНӨ нэмнэ -->
+<uses-permission android:name="android.permission.INTERNET"/>
+<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+<uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+<queries>
+  <intent><action android:name="android.intent.action.SENDTO"/><data android:scheme="sms"/></intent>
+  <intent><action android:name="android.intent.action.DIAL"/><data android:scheme="tel"/></intent>
+</queries>
+<!-- Хөгжүүлэлтийн үед http (https биш) backend ашиглах бол <application ...> тагт нэмнэ:
+     android:usesCleartextTraffic="true"   (production-д заавал HTTPS ашиглана) -->
