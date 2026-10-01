@@ -44,7 +44,7 @@
     "nlp_pain_increasing",
     "nlp_has_text"
   ],
-  "t_high": 0.42000000000000004,
+  "t_high": 0.4600000000000001,
   "labels": [
     "LOW",
     "MEDIUM",
