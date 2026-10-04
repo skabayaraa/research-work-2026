@@ -120,12 +120,62 @@ def build_row(req: AssessIn) -> dict[str, float]:
     return row
 
 
-def assess(req: AssessIn) -> AssessOut:
+def assess(req):
     t0 = time.perf_counter()
+
     row = build_row(req)
+
     x = np.array([[row[k] for k in FEATS]], dtype=float)
+
     proba = _model.predict_proba(x)[0]
-    level = int(proba.argmax())
+
+    # Use the tuned HIGH threshold from model_meta.json
+    t_high = float(_meta.get("t_high", 0.46))
+
+    # LOW/MEDIUM decision first
+    base_level = int(np.argmax(proba[:2]))
+
+    # HIGH if probability reaches the tuned safety threshold
+    level = 2 if float(proba[2]) >= t_high else base_level
+
+    # Safety guardrail: red-flag symptoms always force HIGH
+    guard = any(
+        row[f"chk_{s}"] or row[f"nlp_{s}"]
+        for s in nlp.RED_FLAGS
+    )
+
+    if guard:
+        level = 2
+
+    lab = LABELS[level]
+
+    return AssessOut(
+        risk_level=lab,
+        probabilities={
+            LABELS[i]: round(float(p), 4)
+            for i, p in enumerate(proba)
+        },
+        guardrail_triggered=bool(guard),
+        rule_baseline=LABELS[
+            rule_predict(row, use_symptoms=True)
+        ],
+        advice=ADVICE[lab],
+        explanations=explain(row),
+        features={
+            k: float(row[k])
+            for k in FEATS
+        },
+        nlp_symptoms=[
+            s for s in nlp.SYMPTOMS
+            if row[f"nlp_{s}"] > 0
+        ],
+        disclaimer=DISCLAIMER,
+        model_version="hybrid-xgb-0.2",
+        server_ms=round(
+            (time.perf_counter() - t0) * 1000,
+            2
+        ),
+    )
     guard = any(row[f"chk_{s}"] or row[f"nlp_{s}"] for s in nlp.RED_FLAGS)
     if guard:
         level = 2  # аюулгүй байдлын давхарга
@@ -137,7 +187,7 @@ def assess(req: AssessIn) -> AssessOut:
         features={k: round(float(row[k]), 3) for k in ("n_contractions", "freq_per_hour", "int_mean", "dur_mean",
                                                         "int_cv", "rule511_minutes", "pain_last")},
         nlp_symptoms=[s for s in nlp.SYMPTOMS if row[f"nlp_{s}"]],
-        disclaimer=DISCLAIMER, model_version="hybrid-xgb-0.1",
+        disclaimer=DISCLAIMER, model_version="hybrid-xgb-0.2",
         server_ms=round((time.perf_counter() - t0) * 1000, 3),
     )
 
